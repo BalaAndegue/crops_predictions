@@ -2,7 +2,7 @@ from collections import Counter
 import numpy as np
 import pickle
 import pandas as pd
-def predict_batch_majority(samples: list, model_path="model/crop_model.pkl"):
+def predict_batch_majority(samples: list, model_path="model/crop_recommendation_model_26crops.pkl"):
     """
     samples : liste de max 10 dictionnaires ou listes avec les 7 features
     Retourne la culture majoritaire + détails des votes

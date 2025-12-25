@@ -15,7 +15,7 @@ st.set_page_config(
 # ========================= CHARGEMENT MODÈLE =========================
 @st.cache_resource
 def load_model():
-    with open("model/crop_model.pkl", "rb") as f:
+    with open("model/crop_recommendation_model_26crops.pkl", "rb") as f:
         data = pickle.load(f)
     return data['model'], data['label_encoder']
 
