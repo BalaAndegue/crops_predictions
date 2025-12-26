@@ -104,7 +104,7 @@ crop-recommendation/
 
 ### Auteur
 
-Fait avec ❤️ par **[Ton Prénom]**  
+Fait avec ❤️ par **BALA ANDEGUE FRANCOIS**  
 - GitHub : https://github.com/BalaAndegue 
 - LinkedIn : https://linkedin.com/in/FrancoisLionnel  
 
