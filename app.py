@@ -1,119 +1,78 @@
-# Sauvegarde ce code dans app.py
 from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel, Field, validator
-from typing import List, Optional
+from pydantic import BaseModel, Field, field_validator
+from typing import List
 import logging
 from batch_processor import predict_batch_majority
 
-# Configuration du logging
+# Configuration logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Crop Recommendation API - Batch Mode",
-    description="API pour recommander des cultures agricoles. Envoie jusqu'à 10 échantillons → retourne la culture majoritaire",
+    title="Crop Recommendation API - Cameroun (6 features)",
+    description="API cultures agricoles: N,P,K,temp,humidity,ph → 26 cultures recommandées",
     version="1.0",
     contact={
-        "name": "Votre Nom/Équipe",
-        "email": "agriculture@example.com",
-    },
-    license_info={
-        "name": "MIT",
-        "url": "https://opensource.org/licenses/MIT",
+        "name": "Bala Andegue",
+        "email": "balaandeguefrancoislionnel@gmail.com",
     }
 )
 
-# Modèles Pydantic avec validation
+# ✅ 6 FEATURES (PAS rainfall)
 class SoilSample(BaseModel):
-    N: float = Field(..., gt=0, description="Teneur en azote (N)")
-    P: float = Field(..., gt=0, description="Teneur en phosphore (P)")
-    K: float = Field(..., gt=0, description="Teneur en potassium (K)")
-    temperature: float = Field(..., description="Température en °C")
-    humidity: float = Field(..., ge=0, le=100, description="Humidité relative en %")
-    ph: float = Field(..., ge=0, le=14, description="pH du sol")
-    rainfall: float = Field(..., gt=0, description="Précipitations en mm")
+    N: float = Field(..., gt=0, description="Azote (kg/ha)")
+    P: float = Field(..., gt=0, description="Phosphore (kg/ha)") 
+    K: float = Field(..., gt=0, description="Potassium (kg/ha)")
+    temperature: float = Field(..., description="Température (°C)")
+    humidity: float = Field(ge=0, le=100, description="Humidité (%)")
+    ph: float = Field(ge=0, le=14, description="pH sol")
     
-    @validator('temperature')
+    @field_validator('temperature')
+    @classmethod
     def validate_temperature(cls, v):
-        if not -50 <= v <= 60:  # Plage raisonnable pour l'agriculture
-            raise ValueError('Température hors plage valide (-50°C à 60°C)')
+        if not -50 <= v <= 60:
+            raise ValueError('Température agriculture: -50°C à 60°C')
         return v
 
 class BatchRequest(BaseModel):
     samples: List[SoilSample] = Field(
         ...,
-        min_items=1,
-        max_items=10,
-        description="Liste de 1 à 10 échantillons de sol"
+        min_items=1, max_items=10,
+        description="1-10 échantillons sol Cameroun"
     )
 
-class PredictionResponse(BaseModel):
-    majority_crop: str = Field(..., description="Culture majoritaire recommandée")
-    predictions: List[str] = Field(..., description="Prédictions pour chaque échantillon")
-    confidence: float = Field(..., description="Confiance de la prédiction (pourcentage)")
-    sample_count: int = Field(..., description="Nombre d'échantillons traités")
-
-@app.post(
-    "/predict/batch",
-    response_model=PredictionResponse,
-    summary="Prédire la culture majoritaire",
-    description="Soumet un batch de 1 à 10 échantillons de sol et retourne la culture majoritaire recommandée",
-    response_description="La culture recommandée avec les détails de prédiction",
-    tags=["Prédictions"]
-)
+# Response flexible (batch_processor retourne dict)
+@app.post("/predict/batch")
 async def predict_batch(request: BatchRequest):
     """
-    Endpoint pour la prédiction par batch.
-    
-    - **samples**: Liste d'échantillons de sol (1-10)
-    - Retourne la culture la plus fréquemment recommandée
+    🔹 Recommande culture majoritaire (26 cultures)
+    🔹 Features: N,P,K,temp,humidity,ph (6)
     """
     try:
-        # Log de la requête
-        logger.info(f"Requête batch reçue avec {len(request.samples)} échantillons")
-        
-        # Conversion des données
-        data = [s.dict() for s in request.samples]
-        
-        # Appel au batch processor
+        logger.info(f"Batch {len(request.samples)} échantillons")
+        data = [s.dict() for s in request.samples]  # 6 features
         result = predict_batch_majority(data)
-        
-        # Log du résultat
-        logger.info(f"Prédiction terminée: {result.get('majority_crop', 'N/A')}")
-        
+        logger.info(f"✅ {result.get('recommended_crop', 'OK')}")
         return result
         
     except Exception as e:
-        logger.error(f"Erreur lors de la prédiction: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur interne du serveur: {str(e)}"
-        )
+        logger.error(f"❌ {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/", tags=["Accueil"])
-def home():
-    """Page d'accueil de l'API"""
+async def home():
     return {
-        "message": "Bienvenue sur l'API de Recommandation de Cultures",
+        "🌱": "Agriculture Cameroun API",
         "version": "1.0",
-        "documentation": "/docs",
-        "endpoints": {
-            "batch_prediction": "/predict/batch [POST]"
-        }
+        "endpoints": ["/predict/batch POST", "/health"],
+        "docs": "/docs",  # Swagger automatique
+        "features": ["N","P","K","temperature","humidity","ph"]
     }
 
-@app.get("/health", tags=["Santé"])
-def health_check():
-    """Vérification de l'état de l'API"""
-    return {
-        "status": "healthy",
-        "service": "crop-recommendation-api"
-    }
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "service": "crops-26classes"}
 
-# Gestionnaire d'erreurs global
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
-    return {
-        "error": exc.detail,
-        "status_code": exc.status_code
-    }
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
