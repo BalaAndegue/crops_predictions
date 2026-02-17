@@ -1,13 +1,13 @@
 # streamlit_app.py
 import streamlit as st
 import pandas as pd
-import pickle
+import joblib
 from collections import Counter
 import numpy as np
 
 # ========================= CONFIG =========================
 st.set_page_config(
-    page_title="Crop Recommendation 🌱",
+    page_title="Crop Recommendation Cameroun 🌱",
     page_icon="🌾",
     layout="centered"
 )
@@ -15,9 +15,9 @@ st.set_page_config(
 # ========================= CHARGEMENT MODÈLE =========================
 @st.cache_resource
 def load_model():
-    with open("model/crop_recommendation_model_26crops.pkl", "rb") as f:
-        data = pickle.load(f)
-    return data['model'], data['label_encoder']
+    model = joblib.load("model/crop_recommendation_model_26crops.pkl")
+    le = joblib.load("model/label_encoder_26crops.pkl")
+    return model, le
 
 model, le = load_model()
 
@@ -68,9 +68,13 @@ if submit_button:
     with st.spinner("Prédiction en cours..."):
         # Conversion en DataFrame
         df_batch = pd.DataFrame(samples)
+        
+        # ✅ ORDRE EXACT DU MODÈLE (comme dans batch_processor)
+        MODEL_FEATURES = ['N', 'P', 'K', 'ph', 'humidity', 'temperature']
+        X_batch = df_batch[MODEL_FEATURES]
 
         # Prédictions individuelles
-        preds_encoded = model.predict(df_batch)
+        preds_encoded = model.predict(X_batch)
         preds_labels = le.inverse_transform(preds_encoded)
 
         # Vote majoritaire
@@ -116,10 +120,10 @@ if submit_button:
 with st.sidebar:
     st.header("À propos")
     st.write("""
-    - Modèle : Random Forest (99.7% accuracy)
-    - 22 cultures possibles
+    - Modèle : Random Forest optimisé
+    - 8 cultures spécifiques au Cameroun
     - Stratégie : **Vote majoritaire** sur max 10 échantillons
-    - Robustesse testée au bruit et aux cas extrêmes
+    - Features : N, P, K, pH, humidité, température
     """)
     
     st.markdown("### Cultures possibles")

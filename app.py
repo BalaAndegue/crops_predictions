@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import List
 import logging
 from batch_processor import predict_batch_majority
+from fastapi.middleware.cors import CORSMiddleware
 
 # Configuration logging
 logging.basicConfig(level=logging.INFO)
@@ -16,6 +17,15 @@ app = FastAPI(
         "name": "Bala Andegue",
         "email": "balaandeguefrancoislionnel@gmail.com",
     }
+)
+
+# Autoriser le domaine frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://smart-agro-three.vercel.app"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
 )
 
 # ✅ 6 FEATURES (PAS rainfall)
