@@ -40,7 +40,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://smart-agro-three.vercel.app", "*"],
+    allow_origins=["https://smart-agro-three.vercel.app", "*",'http://10.179.122.11:8000'],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

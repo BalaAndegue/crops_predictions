@@ -1,15 +1,18 @@
-# Rapport de Projet : Système de Recommandation de Cultures — Top-3 (Afrique sub-saharienne / Cameroun)
+# Rapport de Projet : Système de Recommandation de Cultures — Top-3
 
-**Date :** Février 2026 (mis à jour)  
-**Projet :** Crop Recommendation System — Research-Based Dataset
+**Auteur :** Bala Andegue François-Lionnel  
+**Date :** Février 2026  
+**Version :** 2.0 — Research-Based Dataset · Top-3 par `predict_proba`
 
 ---
 
 ## 1. Introduction
 
-Ce rapport détaille les travaux techniques réalisés pour la conception d'un système intelligent de **recommandation des trois meilleures cultures** adaptées à un sol donné. L'objectif est, à partir des paramètres nutritifs du sol (Azote `N`, Phosphore `P`, Potassium `K`, `pH`) et des conditions climatiques (`Température`, `Humidité`, `Pluviométrie`), de retourner le **classement des 3 cultures les plus adaptées**, ordonnées par probabilité.
+Ce projet implémente un système intelligent de **recommandation des trois meilleures cultures** adaptées à un profil de sol donné. À partir de sept paramètres agro-pédologiques, le système retourne — pour **chaque vecteur de caractéristiques** — le **classement ordonné des 3 cultures les plus adaptées** avec leur niveau de confiance (probabilité RFC en %).
 
-Ce dataset et ce modèle ont été **entièrement refondus** pour s'appuyer exclusivement sur des références scientifiques de référence :
+Pour un **lot de N vecteurs**, le **Top-3 global** est obtenu par **moyenne des probabilités RF** sur l'ensemble des N échantillons.
+
+Le dataset et le modèle ont été entièrement refondus sur des références scientifiques de référence :
 
 | Code | Référence |
 |------|-----------|
@@ -20,13 +23,14 @@ Ce dataset et ce modèle ont été **entièrement refondus** pour s'appuyer excl
 
 ---
 
-## 2. Dataset Synthétisé — Méthodologie
+## 2. Dataset Synthétisé
 
-### 2.1. Principes de sélection des cultures
-Seules les cultures **explicitement référencées** dans les quatre sources sont incluses. Toute culture non documentée (ex. : arachides, cultures asiatiques du dataset original, etc.) a été exclue.
+### 2.1. Sélection des cultures
+Seules les cultures **explicitement documentées** dans les quatre sources scientifiques sont incluses. Les cultures non documentées (ex. : arachides, cultures asiatiques du dataset Kaggle original) ont été exclues.
 
 ### 2.2. Unités
-Les macronutriments N, P, K sont exprimés en **mg/kg** (milligrammes par kilogramme de sol = ppm), unité standard utilisée dans les analyses pédologiques et les recommandations de fertilisation de la FAO et de l'IITA.
+- **N, P, K** : mg/kg (= ppm), unité standard des analyses pédologiques FAO/IITA
+- **Température** : °C · **Humidité** : % · **pH** : sans unité · **Pluviométrie** : mm/an
 
 ### 2.3. Cultures incluses (15)
 
@@ -39,16 +43,20 @@ Les macronutriments N, P, K sont exprimés en **mg/kg** (milligrammes par kilogr
 | Vivrières fruitières | `banane_plantain` |
 
 ### 2.4. Méthode de génération
-- **Script :** `generate_research_dataset.py` (paramètres issus des références bibliographiques)
-- **Volume :** 500 échantillons par culture → **7 500 lignes au total**
-- **Tirage :** `numpy.random.uniform` dans des fenêtres agronomiques validées par la littérature
-- **Reproductibilité :** `random_state = 42`
+
+| Paramètre | Valeur |
+|---|---|
+| Script | `generate_research_dataset.py` |
+| Volume | 500 échantillons × 15 cultures = **7 500 lignes** |
+| Tirage | `numpy.random.uniform` dans les fenêtres agronomiques validées |
+| Reproductibilité | `random_state = 42` |
+| Fichier résultant | `data/research_based_dataset.csv` |
 
 ---
 
-## 3. Tableau Récapitulatif des Intervalles Agronomiques
+## 3. Intervalles Agronomiques par Culture
 
-Toutes les valeurs de N, P, K sont en **mg/kg**. Température en °C, Humidité en %, Pluviométrie en mm/an.
+Toutes les valeurs N, P, K sont en **mg/kg**. Temp. en °C, Humidité en %, Pluviométrie en mm/an.
 
 | Culture | N (mg/kg) | P (mg/kg) | K (mg/kg) | Temp. (°C) | Humidité (%) | pH | Pluie (mm) | Réf. |
 |---|---|---|---|---|---|---|---|---|
@@ -70,41 +78,52 @@ Toutes les valeurs de N, P, K sont en **mg/kg**. Température en °C, Humidité 
 
 ---
 
-## 4. Entraînement du Modèle — Top-3 Recommandations
+## 4. Modèle — Architecture et Performances
 
-### 4.1. Architecture
-- **Algorithme :** `RandomForestClassifier` (scikit-learn)
-- **`n_estimators` :** 200 arbres
-- **`random_state` :** 42 (reproductibilité)
-- **`n_jobs` :** -1 (parallélisation maximale)
-- **Split train/test :** 80 % / 20 % (stratifié)
+### 4.1. Algorithme
 
-### 4.2. Performances
+| Paramètre | Valeur |
+|---|---|
+| Algorithme | `RandomForestClassifier` (scikit-learn) |
+| `n_estimators` | 200 arbres |
+| `random_state` | 42 |
+| `n_jobs` | -1 (parallélisation maximale) |
+| Split train/test | 80 % / 20 % (stratifié) |
+| Features (7) | `N`, `P`, `K`, `temperature`, `humidity`, `ph`, `rainfall` |
+| Fichier modèle | `model/top3_crop_model.pkl` |
+
+### 4.2. Performances (métriques issues du bundle)
 
 | Métrique | Valeur |
 |---|---|
-| Validation croisée (10-fold) | **86.20 % ± 0.91 %** |
-| Accuracy sur l'ensemble de test | **85.93 %** |
+| Validation croisée 10-fold — moyenne | **86.20 %** |
+| Validation croisée 10-fold — écart-type | **± 0.91 %** |
+| Accuracy sur le jeu de test (20 %) | **85.93 %** |
 
-> **Note :** Ces performances reflètent la réalité agronomique. Certaines cultures partagent des conditions agroécologiques similaires (ex. : banane\_plantain, taro, palmier à huile en zone humide). L'accuracy de 86 % traduit donc une discrimination correcte malgré ce chevauchement naturel — le modèle est robuste et non surajusté.
+> **Note :** L'accuracy de 86 % reflète la réalité agronomique. Plusieurs cultures partagent des conditions similaires (ex. : banane\_plantain, taro, palmier à huile en zone humide). La léger écart traduit ce chevauchement naturel — le modèle est robuste et non surajusté.
 
-### 4.3. Pipeline de Prédiction Top-3
-La prédiction s'effectue via `predict_proba` : pour un profil de sol donné, le modèle calcule la probabilité de chaque culture et retourne les **3 cultures les plus probables**, triées par ordre décroissant de confiance.
+### 4.3. Pipeline Top-3 par vecteur
+
+Pour **chaque vecteur de caractéristiques**, `predict_proba()` calcule la probabilité de chaque culture et retourne les **3 cultures les plus probables**, triées par confiance décroissante :
 
 ```python
-# Exemple d'utilisation
-soil_profile = {
-    'N': 120, 'P': 45, 'K': 180,    # mg/kg
-    'temperature': 27, 'humidity': 82,
-    'ph': 6.0, 'rainfall': 2200,     # mm/an
-}
-top3 = predict_top3(model, label_encoder, soil_profile)
-# → [{'rang': 1, 'culture': 'banane_plantain', 'probabilite': '52.3 %'}, ...]
+# batch_processor.py — logique centrale
+all_probas = model.predict_proba(X_batch)   # shape (n_samples, 15)
+
+# Par échantillon → Top-3
+idx = np.argsort(proba)[::-1][:3]
+top3 = [{"rang": i+1, "culture": classes[j], "confiance": round(proba[j]*100, 1)}
+        for i, j in enumerate(idx)]
+
+# Pour N vecteurs → Top-3 global (moyenne des probabilités)
+mean_proba = all_probas.mean(axis=0)
+top3_global = [{"rang": i+1, "culture": classes[j], "confiance_agregee": round(mean_proba[j]*100,1)}
+               for i, j in enumerate(np.argsort(mean_proba)[::-1][:3])]
 ```
 
 ### 4.4. Exemples de Recommandations
 
-| Sol | Zone Cameroun | Recommandation #1 | Recommandation #2 | Recommandation #3 |
+| Profil de sol | Zone Cameroun | 🥇 Rang 1 | 🥈 Rang 2 | 🥉 Rang 3 |
 |---|---|---|---|---|
 | Fertile humide (N=120, P=45, K=180, pH=6.0, 2200 mm) | Littoral / Sud | banane\_plantain | manioc | taro |
 | Sahélien pauvre (N=30, P=10, K=25, pH=7.2, 450 mm) | Extrême-Nord | sorgho | mil | niebe |
@@ -112,19 +131,73 @@ top3 = predict_top3(model, label_encoder, soil_profile)
 
 ---
 
-## 5. Fichiers du Projet
+## 5. Architecture du Système
 
-| Fichier | Description |
-|---|---|
-| `generate_research_dataset.py` | Script de génération du dataset (paramètres FAO/IITA/IRAD/CIRAD) |
-| `synthesized_research_data.ipynb` | Notebook EDA : distributions, heatmaps, tableau récapitulatif |
-| `train_top3_model.ipynb` | Notebook d'entraînement, évaluation et prédiction Top-3 |
-| `data/research_based_dataset.csv` | Dataset synthétisé (7 500 lignes, 15 cultures, mg/kg) |
-| `model/top3_crop_model.pkl` | Bundle du modèle (RF + LabelEncoder + métriques + références) |
+### 5.1. API FastAPI (`app.py` + `batch_processor.py`)
+
+**Endpoint :** `POST /predict/batch`  
+**Entrée :** 1 à 10 vecteurs de sol (JSON)  
+**Sortie :**
+- `resultats_par_echantillon` : Top-3 cultures + confiance pour **chaque** vecteur
+- `top3_global` : Top-3 agrégé (moyenne probabilités) sur le lot
+- `nb_echantillons` : nombre de vecteurs traités
+
+```json
+{
+  "samples": [
+    {"N": 90, "P": 42, "K": 43, "temperature": 20,
+     "humidity": 82, "ph": 6.5, "rainfall": 200}
+  ]
+}
+```
+
+**Réponse :**
+```json
+{
+  "nb_echantillons": 1,
+  "resultats_par_echantillon": [
+    {"echantillon": 1, "top3": [
+      {"rang": 1, "culture": "mais",    "confiance": 77.5},
+      {"rang": 2, "culture": "soja",    "confiance": 5.0},
+      {"rang": 3, "culture": "cacao",   "confiance": 4.5}
+    ]}
+  ],
+  "top3_global": [
+    {"rang": 1, "culture": "mais",  "confiance_agregee": 77.5},
+    {"rang": 2, "culture": "soja",  "confiance_agregee": 5.0},
+    {"rang": 3, "culture": "cacao", "confiance_agregee": 4.5}
+  ]
+}
+```
+
+**Documentation interactive :** `http://localhost:8000/docs` (Swagger UI)
+
+### 5.2. Application Streamlit (`streamlit_app.py`)
+
+- Charge `model/top3_crop_model.pkl` via `pickle`
+- Formulaire dynamique : 1 à 10 vecteurs de sol
+- Pour **chaque vecteur** : affiche le Top-3 avec médailles + barre de confiance
+- Pour le **lot global** : Top-3 agrégé par moyenne, graphique de distribution des probabilités
+- Tableau récapitulatif : Top-1, Top-2, Top-3 par échantillon
 
 ---
 
-## 6. Références Bibliographiques
+## 6. Fichiers du Projet
+
+| Fichier | Description |
+|---|---|
+| `generate_research_dataset.py` | Génération du dataset (paramètres FAO/IITA/IRAD/CIRAD) |
+| `data/research_based_dataset.csv` | Dataset (7 500 lignes · 15 cultures · mg/kg) |
+| `synthesized_research_data.ipynb` | EDA : distributions, heatmaps, tableau récapitulatif |
+| `train_top3_model.ipynb` | Entraînement, évaluation, prédiction Top-3 |
+| `model/top3_crop_model.pkl` | Bundle RF : modèle + classes + métriques + références |
+| `batch_processor.py` | Pipeline de prédiction Top-3 par lot |
+| `app.py` | API FastAPI : POST /predict/batch |
+| `streamlit_app.py` | Interface utilisateur Streamlit |
+
+---
+
+## 7. Références Bibliographiques
 
 - **[1]** FAO. *Crop Production Guidelines and Soil Management in Tropical Regions.* Food and Agriculture Organization of the United Nations, Rome.
 - **[2]** IITA. *Crop and Soil Fertility Management Practices in Sub-Saharan Africa.* International Institute of Tropical Agriculture, Ibadan.
