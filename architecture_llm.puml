@@ -1,0 +1,69 @@
+@startuml
+!theme plain
+autonumber
+
+skinparam BoxPadding 10
+skinparam ParticipantPadding 20
+skinparam NoteBackgroundColor #f9f9f9
+skinparam NoteBorderColor #cccccc
+
+actor "Utilisateur\n(Frontend Next.js)" as User
+box "Conteneur Render (Serveur Uvicorn)" #LightYellow
+    participant "FastAPI\n(Endpoint REST)" as API
+    participant "AgentOrchestrator\n(asyncio)" as Orch
+    participant "WeatherAgent\n(Asynchrone)" as W_Agent
+    participant "EconomicAgent\n(Asynchrone)" as E_Agent
+end box
+
+database "Données Locales" as LocalDB
+cloud "API OpenRouter\n(LLMService)" as LLM #LightCyan
+cloud "API Open-Meteo" as Meteo #LightBlue
+
+== 1. Réception et Routage (Intent) ==
+
+User -> API : [HTTPS POST] Envoi du contexte (Sol, Région, Culture)
+activate API
+API -> Orch : Transmission de la requête
+activate Orch
+
+Orch -> LLM : [HTTPS] Prompt de détection d'intention (Routage)
+activate LLM
+LLM --> Orch : [JSON] Retourne les experts cibles (Ex: Météo, Eco)
+deactivate LLM
+
+== 2. Exécution Parallèle Asynchrone (asyncio.gather) ==
+
+note over Orch: Déclenchement simultané des agents via asyncio.gather()
+par Exécution WeatherAgent
+    Orch -> W_Agent : process()
+    activate W_Agent
+    W_Agent -> Meteo : [REST GET] Demande prévisions décadaires
+    activate Meteo
+    Meteo --> W_Agent : [JSON] Températures, précipitations
+    deactivate Meteo
+    W_Agent --> Orch : Retourne les préconisations météo formatées
+    deactivate W_Agent
+else Exécution EconomicAgent
+    Orch -> E_Agent : process()
+    activate E_Agent
+    E_Agent -> LocalDB : Extraction des prix du marché
+    activate LocalDB
+    LocalDB --> E_Agent : Tendances et rentabilité
+    deactivate LocalDB
+    E_Agent --> Orch : Retourne l'analyse économique
+    deactivate E_Agent
+end
+
+== 3. Synthèse et Réponse ==
+
+Orch -> LLM : [HTTPS POST] Prompt de synthèse (Données Météo + Eco + Sol)
+activate LLM
+LLM --> Orch : [JSON] Synthèse algorithmique stricte (Max 250 mots)
+deactivate LLM
+
+Orch --> API : Objet JSON consolidé
+deactivate Orch
+API --> User : [HTTPS 200 OK] Affichage de la recommandation sur l'interface
+deactivate API
+
+@enduml
